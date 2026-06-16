@@ -1,0 +1,38 @@
+# 의존성
+node_modules/
+
+# 환경변수 (보안)
+.env
+.env.local
+.env.production
+
+# DB 파일 (로컬 전용)
+backend/prisma/dev.db
+backend/prisma/dev.db-journal
+
+# 업로드 파일 (로컬 전용)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# 빌드 결과물
+frontend/dist/
+backend/dist/
+
+# 로그
+*.log
+npm-debug.log*
+
+# Claude Code
+.claude/
+
+# 에디터
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# OS
+.DS_Store
+Thumbs.db
