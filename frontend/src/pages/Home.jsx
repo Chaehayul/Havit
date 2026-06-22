@@ -7,12 +7,12 @@ import { CategoryIcon } from '../components/common/CategoryIcons';
 import RecentlyViewed from '../components/product/RecentlyViewed';
 
 export default function Home() {
-  const { data: newArrivalsData } = useQuery({
+  const { data: newArrivalsData, isLoading: newArrivalsLoading } = useQuery({
     queryKey: ['products', { featured: 'true', limit: 8 }],
     queryFn: () => productApi.getProducts({ featured: true, limit: 8, sort: 'createdAt_desc' }),
   });
 
-  const { data: bestData } = useQuery({
+  const { data: bestData, isLoading: bestLoading } = useQuery({
     queryKey: ['products', { sort: 'sales_desc', limit: 8 }],
     queryFn: () => productApi.getProducts({ sort: 'sales_desc', limit: 8 }),
   });
@@ -41,16 +41,16 @@ export default function Home() {
         <section className="max-w-7xl mx-auto px-4 sm:px-6 py-16">
           <h2 className="text-2xl font-bold mb-8">카테고리</h2>
           <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-            {categories.map((cat) => (
+            {categories.map((category) => (
               <Link
-                key={cat.id}
-                to={`/products?category=${cat.slug}`}
+                key={category.id}
+                to={`/products?category=${category.slug}`}
                 className="group flex flex-col items-center gap-2 p-3 hover:bg-gray-50 rounded-lg transition-colors"
               >
                 <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center group-hover:bg-gray-200 transition-colors text-gray-600 group-hover:text-black">
-                  <CategoryIcon slug={cat.slug} />
+                  <CategoryIcon slug={category.slug} />
                 </div>
-                <span className="text-xs text-center text-gray-700 font-medium">{cat.name}</span>
+                <span className="text-xs text-center text-gray-700 font-medium">{category.name}</span>
               </Link>
             ))}
           </div>
@@ -83,7 +83,11 @@ export default function Home() {
             전체보기 <ArrowRight size={14} />
           </Link>
         </div>
-        <ProductGrid products={newArrivalsData?.products} isLoading={!newArrivalsData} />
+        <ProductGrid
+          products={newArrivalsData?.products}
+          isLoading={newArrivalsLoading}
+          emptyMessage="등록된 신상품이 없습니다."
+        />
       </section>
 
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-16 border-t">
@@ -93,7 +97,11 @@ export default function Home() {
             전체보기 <ArrowRight size={14} />
           </Link>
         </div>
-        <ProductGrid products={bestData?.products} isLoading={!bestData} />
+        <ProductGrid
+          products={bestData?.products}
+          isLoading={bestLoading}
+          emptyMessage="등록된 베스트셀러가 없습니다."
+        />
       </section>
 
       <RecentlyViewed />
