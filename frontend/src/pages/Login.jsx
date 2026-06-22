@@ -16,7 +16,7 @@ const DEMO_ACCOUNTS = [
   {
     label: '일반 회원 계정',
     description: '주문/리뷰/마이페이지 확인용',
-    email: 'user@shop.kr',
+    email: 'customer@havit.kr',
     password: 'user123!',
     icon: UserRound,
   },
@@ -38,9 +38,9 @@ export default function Login() {
 
   const onSubmit = async ({ email, password }) => {
     try {
-      const user = await login(email, password);
+      const data = await login(email, password);
       toast.success('로그인되었습니다.');
-      navigate(user?.role === 'ADMIN' ? '/admin' : from, { replace: true });
+      navigate(data?.user?.role === 'ADMIN' ? '/admin' : from, { replace: true });
     } catch (err) {
       toast.error(err.response?.data?.message || '로그인에 실패했습니다.');
     }
