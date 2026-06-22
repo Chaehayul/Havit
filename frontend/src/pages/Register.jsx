@@ -5,6 +5,12 @@ import { Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { useAuthStore } from '../store/auth.store';
 import toast from 'react-hot-toast';
 
+const BENEFITS = [
+  '첫 주문 10% 할인 쿠폰 지급',
+  '신상품과 세일 소식 알림',
+  '주문 및 배송 현황 확인',
+];
+
 export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const { register: registerUser, isLoading } = useAuthStore();
@@ -16,29 +22,26 @@ export default function Register() {
   const onSubmit = async ({ email, password, name, phone }) => {
     try {
       await registerUser({ email, password, name, phone });
-      toast.success('회원가입이 완료되었습니다! 🎉');
+      toast.success('회원가입이 완료되었습니다.');
       navigate('/');
     } catch (err) {
       toast.error(err.response?.data?.message || '회원가입에 실패했습니다.');
     }
   };
 
-  const BENEFITS = ['첫 주문 10% 할인쿠폰 즉시 지급', '신상품 & 세일 알림', '주문/배송 실시간 알림'];
-
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-gray-50">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <Link to="/" className="text-3xl font-bold tracking-widest">HAVIT</Link>
-          <p className="text-gray-500 mt-2 text-sm">회원가입하고 특별한 혜택을 받아보세요</p>
+          <p className="text-gray-500 mt-2 text-sm">회원가입하고 특별한 혜택을 받아보세요.</p>
         </div>
 
-        {/* 혜택 */}
         <div className="bg-black text-white p-4 mb-6 space-y-1.5">
-          {BENEFITS.map((b) => (
-            <div key={b} className="flex items-center gap-2 text-sm">
+          {BENEFITS.map((benefit) => (
+            <div key={benefit} className="flex items-center gap-2 text-sm">
               <CheckCircle2 size={14} className="text-green-400 shrink-0" />
-              <span>{b}</span>
+              <span>{benefit}</span>
             </div>
           ))}
         </div>
@@ -47,7 +50,10 @@ export default function Register() {
           <div>
             <label className="block text-sm font-medium mb-1.5">이름 <span className="text-red-500">*</span></label>
             <input
-              {...register('name', { required: '이름을 입력해주세요.', minLength: { value: 2, message: '이름은 2자 이상이어야 합니다.' } })}
+              {...register('name', {
+                required: '이름을 입력해주세요.',
+                minLength: { value: 2, message: '이름은 2자 이상이어야 합니다.' },
+              })}
               className={`input-base ${errors.name ? 'input-error' : ''}`}
               placeholder="홍길동"
             />
@@ -94,6 +100,7 @@ export default function Register() {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -117,7 +124,8 @@ export default function Register() {
 
           <p className="text-xs text-gray-400">
             회원가입 시{' '}
-            <a href="#" className="underline hover:text-black">이용약관</a>{' '}및{' '}
+            <a href="#" className="underline hover:text-black">이용약관</a>{' '}
+            및{' '}
             <a href="#" className="underline hover:text-black">개인정보처리방침</a>에 동의하게 됩니다.
           </p>
 
