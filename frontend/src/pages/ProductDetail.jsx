@@ -1,10 +1,22 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, Minus, Plus, ShoppingBag, Star, ChevronDown, ChevronUp, ZoomIn } from 'lucide-react';
+import {
+  ChevronRight,
+  Minus,
+  Plus,
+  ShoppingBag,
+  Star,
+  ChevronDown,
+  ChevronUp,
+  ZoomIn,
+  Pencil,
+  Trash2,
+} from 'lucide-react';
 import { productApi } from '../api/product.api';
 import { cartApi } from '../api/cart.api';
 import { useCartStore } from '../store/cart.store';
+import { useAuthStore } from '../store/auth.store';
 import { formatPrice, formatDiscount, formatDate, getImageUrl } from '../utils/format';
 import { PageSpinner } from '../components/common/Spinner';
 import Pagination from '../components/common/Pagination';
@@ -17,16 +29,51 @@ import RecentlyViewed from '../components/product/RecentlyViewed';
 import { useRecentlyViewed } from '../hooks/useRecentlyViewed';
 import toast from 'react-hot-toast';
 
+const parseImageInput = (value) =>
+  value
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+function RatingInput({ value, onChange, size = 22 }) {
+  return (
+    <div className="flex gap-1">
+      {[1, 2, 3, 4, 5].map((rating) => (
+        <button
+          key={rating}
+          type="button"
+          onClick={() => onChange(rating)}
+          className="text-yellow-400"
+          aria-label={`${rating}점`}
+        >
+          <Star
+            size={size}
+            className={rating <= value ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}
+          />
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function ProductDetail() {
   const { id } = useParams();
   const queryClient = useQueryClient();
   const { openCart } = useCartStore();
+  const { user } = useAuthStore();
   const [selectedOptions, setSelectedOptions] = useState({});
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
   const [reviewPage, setReviewPage] = useState(1);
   const [zoomedImage, setZoomedImage] = useState(null);
   const [descOpen, setDescOpen] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewImages, setReviewImages] = useState('');
+  const [editingReviewId, setEditingReviewId] = useState(null);
+  const [editRating, setEditRating] = useState(5);
+  const [editComment, setEditComment] = useState('');
+  const [editImages, setEditImages] = useState('');
 
   const { data: product, isLoading } = useQuery({
     queryKey: ['product', id],
@@ -41,39 +88,77 @@ export default function ProductDetail() {
     enabled: !!product,
   });
 
+  const refreshReviews = () => {
+    queryClient.invalidateQueries({ queryKey: ['reviews', id] });
+    queryClient.invalidateQueries({ queryKey: ['product', id] });
+  };
+
   const addToCartMutation = useMutation({
     mutationFn: (data) => cartApi.addItem(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cart'] });
-      toast.success('장바구니에 추가되었습니다.', { icon: '🛍️' });
+      toast.success('장바구니에 추가되었습니다.');
       openCart();
     },
-    onError: (err) => toast.error(err.response?.data?.message || '장바구니 추가 실패'),
+    onError: (err) => toast.error(err.response?.data?.message || '장바구니 추가에 실패했습니다.'),
+  });
+
+  const createReviewMutation = useMutation({
+    mutationFn: (data) => productApi.createReview(id, data),
+    onSuccess: () => {
+      setReviewRating(5);
+      setReviewComment('');
+      setReviewImages('');
+      setReviewPage(1);
+      refreshReviews();
+      toast.success('리뷰가 등록되었습니다.');
+    },
+    onError: (err) => toast.error(err.response?.data?.message || '리뷰 등록에 실패했습니다.'),
+  });
+
+  const updateReviewMutation = useMutation({
+    mutationFn: ({ reviewId, data }) => productApi.updateReview(id, reviewId, data),
+    onSuccess: () => {
+      setEditingReviewId(null);
+      refreshReviews();
+      toast.success('리뷰가 수정되었습니다.');
+    },
+    onError: (err) => toast.error(err.response?.data?.message || '리뷰 수정에 실패했습니다.'),
+  });
+
+  const deleteReviewMutation = useMutation({
+    mutationFn: (reviewId) => productApi.deleteReview(id, reviewId),
+    onSuccess: () => {
+      refreshReviews();
+      toast.success('리뷰가 삭제되었습니다.');
+    },
+    onError: (err) => toast.error(err.response?.data?.message || '리뷰 삭제에 실패했습니다.'),
   });
 
   if (isLoading) return <PageSpinner />;
   if (!product) return <div className="text-center py-20">상품을 찾을 수 없습니다.</div>;
 
   const images = product.images || [];
+  const options = product.options || [];
+  const variants = product.variants || [];
   const discount = formatDiscount(product.comparePrice, product.price);
 
-  // 선택된 옵션에 해당하는 variant 찾기
   const getSelectedVariant = () => {
-    if (!product.variants?.length) return null;
-    return product.variants.find((v) => {
-      const opts = v.options || {};
-      return product.options.every((opt) => opts[opt.name] === selectedOptions[opt.name]);
+    if (!variants.length) return null;
+    return variants.find((variant) => {
+      const opts = variant.options || {};
+      return options.every((opt) => opts[opt.name] === selectedOptions[opt.name]);
     });
   };
 
   const selectedVariant = getSelectedVariant();
   const effectivePrice = selectedVariant?.price || product.price;
-  const isFullySelected = product.options.every((opt) => selectedOptions[opt.name]);
+  const isFullySelected = options.every((opt) => selectedOptions[opt.name]);
   const isOutOfStock = selectedVariant ? selectedVariant.stock === 0 : product.totalStock === 0;
   const stockInfo = selectedVariant?.stock;
 
   const handleAddToCart = () => {
-    if (product.options.length > 0 && !isFullySelected) {
+    if (options.length > 0 && !isFullySelected) {
       toast.error('옵션을 선택해주세요.');
       return;
     }
@@ -91,16 +176,55 @@ export default function ProductDetail() {
 
   const getVariantStock = (optionName, value) => {
     const testOptions = { ...selectedOptions, [optionName]: value };
-    const variant = product.variants.find((v) => {
+    const variant = variants.find((v) => {
       const opts = v.options || {};
-      return Object.entries(testOptions).every(([k, v2]) => opts[k] === v2);
+      return Object.entries(testOptions).every(([key, optionValue]) => opts[key] === optionValue);
     });
     return variant?.stock ?? null;
   };
 
+  const handleCreateReview = (event) => {
+    event.preventDefault();
+    if (!user) {
+      toast.error('로그인 후 리뷰를 작성할 수 있습니다.');
+      return;
+    }
+    if (!reviewComment.trim()) {
+      toast.error('리뷰 내용을 입력해주세요.');
+      return;
+    }
+    createReviewMutation.mutate({
+      rating: reviewRating,
+      comment: reviewComment.trim(),
+      images: parseImageInput(reviewImages),
+    });
+  };
+
+  const startEditReview = (review) => {
+    setEditingReviewId(review.id);
+    setEditRating(review.rating);
+    setEditComment(review.comment);
+    setEditImages((review.images || []).join('\n'));
+  };
+
+  const handleUpdateReview = (event) => {
+    event.preventDefault();
+    if (!editComment.trim()) {
+      toast.error('리뷰 내용을 입력해주세요.');
+      return;
+    }
+    updateReviewMutation.mutate({
+      reviewId: editingReviewId,
+      data: {
+        rating: editRating,
+        comment: editComment.trim(),
+        images: parseImageInput(editImages),
+      },
+    });
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-      {/* 브레드크럼 */}
       <nav className="flex items-center gap-2 text-xs text-gray-400 mb-6">
         <Link to="/" className="hover:text-black transition-colors">홈</Link>
         <ChevronRight size={12} />
@@ -122,9 +246,7 @@ export default function ProductDetail() {
       </nav>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
-        {/* 이미지 섹션 */}
         <div>
-          {/* 메인 이미지 */}
           <div
             className="relative overflow-hidden bg-gray-50 aspect-[3/4] cursor-zoom-in group"
             onClick={() => setZoomedImage(images[activeImage])}
@@ -145,18 +267,18 @@ export default function ProductDetail() {
             )}
           </div>
 
-          {/* 썸네일 */}
           {images.length > 1 && (
             <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide">
-              {images.map((img, i) => (
+              {images.map((img, index) => (
                 <button
-                  key={i}
-                  onClick={() => setActiveImage(i)}
-                  className={`shrink-0 w-16 h-20 border-2 overflow-hidden transition-colors ${i === activeImage ? 'border-black' : 'border-transparent'}`}
+                  key={img}
+                  type="button"
+                  onClick={() => setActiveImage(index)}
+                  className={`shrink-0 w-16 h-20 border-2 overflow-hidden transition-colors ${index === activeImage ? 'border-black' : 'border-transparent'}`}
                 >
                   <img
                     src={getImageUrl(img)}
-                    alt={`${product.name} ${i + 1}`}
+                    alt={`${product.name} ${index + 1}`}
                     className="w-full h-full object-cover"
                     onError={(e) => { e.target.src = 'https://placehold.co/64x80/f3f4f6/9ca3af?text=IMG'; }}
                   />
@@ -166,7 +288,6 @@ export default function ProductDetail() {
           )}
         </div>
 
-        {/* 상품 정보 섹션 */}
         <div className="lg:sticky lg:top-24 lg:self-start">
           <div className="flex items-center justify-between mb-1">
             <p className="text-sm text-gray-400">{product.category?.name}</p>
@@ -177,15 +298,14 @@ export default function ProductDetail() {
           </div>
           <h1 className="text-2xl font-bold leading-snug mb-3">{product.name}</h1>
 
-          {/* 평점 */}
           {product.reviewCount > 0 && (
             <div className="flex items-center gap-2 mb-4">
               <div className="flex">
-                {[1, 2, 3, 4, 5].map((i) => (
+                {[1, 2, 3, 4, 5].map((rating) => (
                   <Star
-                    key={i}
+                    key={rating}
                     size={14}
-                    className={i <= Math.round(product.avgRating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-200'}
+                    className={rating <= Math.round(product.avgRating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-200'}
                   />
                 ))}
               </div>
@@ -193,7 +313,6 @@ export default function ProductDetail() {
             </div>
           )}
 
-          {/* 가격 */}
           <div className="flex items-end gap-3 mb-6">
             <span className="text-3xl font-bold">{formatPrice(effectivePrice)}</span>
             {discount && product.comparePrice && (
@@ -204,11 +323,10 @@ export default function ProductDetail() {
             )}
           </div>
 
-          {/* 배송 정보 */}
           <div className="bg-gray-50 px-4 py-3 text-sm space-y-1 mb-6">
             <div className="flex justify-between">
               <span className="text-gray-500">배송</span>
-              <span>오후 2시 이전 주문 시 당일 출고</span>
+              <span>오후 2시 이전 결제 시 당일 출고</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500">배송비</span>
@@ -216,47 +334,47 @@ export default function ProductDetail() {
             </div>
           </div>
 
-          {/* 옵션 선택 */}
           <div className="flex items-center justify-between mb-4">
-            {product.options.length > 0 && <p className="font-medium text-sm">옵션 선택</p>}
+            {options.length > 0 && <p className="font-medium text-sm">옵션 선택</p>}
             <SizeGuide categorySlug={product.category?.slug} />
           </div>
-          {product.options.map((option) => (
+
+          {options.map((option) => (
             <div key={option.id} className="mb-5">
               <p className="font-medium text-sm mb-2">{option.name}</p>
               <div className="flex flex-wrap gap-2">
-                {option.values.map((val) => {
-                  const isSelected = selectedOptions[option.name] === val.value;
-                  const stockForOption = getVariantStock(option.name, val.value);
+                {option.values.map((value) => {
+                  const isSelected = selectedOptions[option.name] === value.value;
+                  const stockForOption = getVariantStock(option.name, value.value);
                   const isSoldOut = stockForOption === 0;
 
-                  if (val.color) {
+                  if (value.color) {
                     return (
                       <button
-                        key={val.id}
-                        title={`${val.value}${isSoldOut ? ' (품절)' : ''}`}
-                        onClick={() => !isSoldOut && handleOptionSelect(option.name, val.value)}
+                        key={value.id}
+                        type="button"
+                        title={`${value.value}${isSoldOut ? ' (품절)' : ''}`}
+                        onClick={() => !isSoldOut && handleOptionSelect(option.name, value.value)}
                         disabled={isSoldOut}
                         className={`w-8 h-8 rounded-full border-2 transition-all relative ${
                           isSelected ? 'border-black scale-110' : 'border-gray-200 hover:border-gray-400'
                         } ${isSoldOut ? 'opacity-30 cursor-not-allowed' : ''}`}
-                        style={{ backgroundColor: val.color }}
+                        style={{ backgroundColor: value.color }}
                       />
                     );
                   }
 
                   return (
                     <button
-                      key={val.id}
-                      onClick={() => !isSoldOut && handleOptionSelect(option.name, val.value)}
+                      key={value.id}
+                      type="button"
+                      onClick={() => !isSoldOut && handleOptionSelect(option.name, value.value)}
                       disabled={isSoldOut}
                       className={`px-4 py-2 text-sm border transition-all ${
-                        isSelected
-                          ? 'border-black bg-black text-white'
-                          : 'border-gray-200 hover:border-black'
+                        isSelected ? 'border-black bg-black text-white' : 'border-gray-200 hover:border-black'
                       } ${isSoldOut ? 'opacity-40 cursor-not-allowed line-through' : ''}`}
                     >
-                      {val.value}
+                      {value.value}
                     </button>
                   );
                 })}
@@ -264,16 +382,15 @@ export default function ProductDetail() {
             </div>
           ))}
 
-          {/* 재고 경고 */}
           {selectedVariant && stockInfo !== null && stockInfo > 0 && stockInfo <= 5 && (
-            <p className="text-orange-500 text-sm mb-4">⚠ 재고가 {stockInfo}개 남았습니다.</p>
+            <p className="text-orange-500 text-sm mb-4">재고가 {stockInfo}개 남았습니다.</p>
           )}
 
-          {/* 수량 선택 */}
           <div className="flex items-center justify-between mb-6">
             <p className="font-medium text-sm">수량</p>
             <div className="flex items-center border">
               <button
+                type="button"
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
                 className="p-3 hover:bg-gray-50 transition-colors"
               >
@@ -281,6 +398,7 @@ export default function ProductDetail() {
               </button>
               <span className="px-5 text-base min-w-[3rem] text-center">{quantity}</span>
               <button
+                type="button"
                 onClick={() => setQuantity(quantity + 1)}
                 disabled={stockInfo !== null && quantity >= stockInfo}
                 className="p-3 hover:bg-gray-50 disabled:opacity-30 transition-colors"
@@ -290,15 +408,14 @@ export default function ProductDetail() {
             </div>
           </div>
 
-          {/* 총 금액 */}
           <div className="flex justify-between items-center py-4 border-t border-b mb-6">
             <span className="font-medium">총 금액</span>
             <span className="text-2xl font-bold">{formatPrice(effectivePrice * quantity)}</span>
           </div>
 
-          {/* 구매 버튼 */}
           <div className="space-y-3">
             <button
+              type="button"
               onClick={handleAddToCart}
               disabled={isOutOfStock || addToCartMutation.isPending}
               className="w-full btn-primary py-4 text-base font-bold flex items-center justify-center gap-2 disabled:opacity-50"
@@ -311,14 +428,13 @@ export default function ProductDetail() {
             )}
           </div>
 
-          {/* 신뢰 배지 */}
           <TrustBadges className="mt-6" />
         </div>
       </div>
 
-      {/* 상품 설명 */}
       <div className="mt-16 max-w-3xl">
         <button
+          type="button"
           className="w-full flex items-center justify-between py-4 border-t font-bold text-lg"
           onClick={() => setDescOpen(!descOpen)}
         >
@@ -332,25 +448,59 @@ export default function ProductDetail() {
         )}
       </div>
 
-      {/* 리뷰 섹션 */}
       <div className="mt-8 border-t pt-8 max-w-3xl">
-        <h2 className="text-xl font-bold mb-6">
-          리뷰 {reviewsData?.stats?.total > 0 && `(${reviewsData.stats.total})`}
-        </h2>
+        <div className="flex items-center justify-between gap-4 mb-6">
+          <h2 className="text-xl font-bold">
+            리뷰 {reviewsData?.stats?.total > 0 && `(${reviewsData.stats.total})`}
+          </h2>
+          {!user && (
+            <Link to="/login" className="text-sm text-gray-500 underline hover:text-black">
+              로그인 후 리뷰 작성
+            </Link>
+          )}
+        </div>
+
+        {user && (
+          <form onSubmit={handleCreateReview} className="border p-5 mb-8 space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="font-medium">구매 리뷰 작성</p>
+              <RatingInput value={reviewRating} onChange={setReviewRating} />
+            </div>
+            <textarea
+              value={reviewComment}
+              onChange={(event) => setReviewComment(event.target.value)}
+              className="input-base min-h-[110px] resize-none"
+              placeholder="상품을 사용해본 경험을 남겨주세요. 구매 완료 이력이 있는 상품만 등록됩니다."
+            />
+            <textarea
+              value={reviewImages}
+              onChange={(event) => setReviewImages(event.target.value)}
+              className="input-base min-h-[74px] resize-none"
+              placeholder="리뷰 이미지 URL을 한 줄에 하나씩 입력하세요. 선택 사항입니다."
+            />
+            <button
+              type="submit"
+              disabled={createReviewMutation.isPending}
+              className="btn-primary px-5 py-2.5 text-sm disabled:opacity-50"
+            >
+              리뷰 등록
+            </button>
+          </form>
+        )}
 
         {reviewsData?.stats?.total > 0 && (
           <div className="flex items-center gap-8 mb-8 p-6 bg-gray-50">
             <div className="text-center">
               <p className="text-5xl font-bold">{reviewsData.stats.avgRating}</p>
               <div className="flex justify-center mt-1">
-                {[1,2,3,4,5].map((i) => (
-                  <Star key={i} size={14} className={i <= Math.round(reviewsData.stats.avgRating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-200'} />
+                {[1, 2, 3, 4, 5].map((rating) => (
+                  <Star key={rating} size={14} className={rating <= Math.round(reviewsData.stats.avgRating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-200'} />
                 ))}
               </div>
               <p className="text-sm text-gray-500 mt-1">{reviewsData.stats.total}개 리뷰</p>
             </div>
             <div className="flex-1 space-y-1">
-              {[5,4,3,2,1].map((rating) => {
+              {[5, 4, 3, 2, 1].map((rating) => {
                 const count = reviewsData.stats.distribution[rating] || 0;
                 const pct = reviewsData.stats.total > 0 ? (count / reviewsData.stats.total) * 100 : 0;
                 return (
@@ -369,34 +519,98 @@ export default function ProductDetail() {
         )}
 
         <div className="space-y-6">
-          {reviewsData?.reviews?.map((review) => (
-            <div key={review.id} className="border-b pb-6">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm">{review.user.name}</span>
-                  <div className="flex">
-                    {[1,2,3,4,5].map((i) => (
-                      <Star key={i} size={12} className={i <= review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-200'} />
-                    ))}
-                  </div>
-                </div>
-                <span className="text-xs text-gray-400">{formatDate(review.createdAt)}</span>
+          {reviewsData?.reviews?.map((review) => {
+            const isMine = user?.id === review.user.id;
+            const isEditing = editingReviewId === review.id;
+
+            return (
+              <div key={review.id} className="border-b pb-6">
+                {isEditing ? (
+                  <form onSubmit={handleUpdateReview} className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <RatingInput value={editRating} onChange={setEditRating} size={18} />
+                      <button
+                        type="button"
+                        onClick={() => setEditingReviewId(null)}
+                        className="text-xs text-gray-500 underline"
+                      >
+                        취소
+                      </button>
+                    </div>
+                    <textarea
+                      value={editComment}
+                      onChange={(event) => setEditComment(event.target.value)}
+                      className="input-base min-h-[90px] resize-none"
+                    />
+                    <textarea
+                      value={editImages}
+                      onChange={(event) => setEditImages(event.target.value)}
+                      className="input-base min-h-[70px] resize-none"
+                      placeholder="리뷰 이미지 URL"
+                    />
+                    <button
+                      type="submit"
+                      disabled={updateReviewMutation.isPending}
+                      className="btn-primary px-4 py-2 text-sm disabled:opacity-50"
+                    >
+                      수정 저장
+                    </button>
+                  </form>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">{review.user.name}</span>
+                        <div className="flex">
+                          {[1, 2, 3, 4, 5].map((rating) => (
+                            <Star key={rating} size={12} className={rating <= review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-200'} />
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-gray-400">{formatDate(review.createdAt)}</span>
+                        {isMine && (
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => startEditReview(review)}
+                              className="p-1 text-gray-400 hover:text-black"
+                              aria-label="리뷰 수정"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteReviewMutation.mutate(review.id)}
+                              className="p-1 text-gray-400 hover:text-red-600"
+                              aria-label="리뷰 삭제"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-700 leading-relaxed">{review.comment}</p>
+                    {review.images?.length > 0 && (
+                      <div className="flex gap-2 mt-3">
+                        {review.images.map((img) => (
+                          <img key={img} src={getImageUrl(img)} alt="리뷰 이미지" className="w-16 h-16 object-cover bg-gray-50" />
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
-              <p className="text-sm text-gray-700 leading-relaxed">{review.comment}</p>
-              {review.images?.length > 0 && (
-                <div className="flex gap-2 mt-3">
-                  {review.images.map((img, i) => (
-                    <img key={i} src={getImageUrl(img)} alt="리뷰 이미지" className="w-16 h-16 object-cover bg-gray-50" />
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
+
           {reviewsData?.stats?.total === 0 && (
-            <p className="text-gray-400 text-center py-8">아직 리뷰가 없습니다. 첫 번째 리뷰를 작성해보세요!</p>
+            <p className="text-gray-400 text-center py-8">아직 리뷰가 없습니다. 구매 후 첫 리뷰를 남겨보세요.</p>
           )}
         </div>
-        {reviewsData && (
+
+        {reviewsData && reviewsData.pagination.totalPages > 1 && (
           <Pagination
             currentPage={reviewPage}
             totalPages={reviewsData.pagination.totalPages}
@@ -405,10 +619,8 @@ export default function ProductDetail() {
         )}
       </div>
 
-      {/* 최근 본 상품 */}
       <RecentlyViewed excludeId={product.id} />
 
-      {/* 이미지 줌 모달 */}
       {zoomedImage && (
         <div
           className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
