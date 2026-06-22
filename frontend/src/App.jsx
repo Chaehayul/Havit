@@ -2,7 +2,6 @@ import { Routes, Route, Navigate, useLocation, useNavigate, Link } from 'react-r
 import Layout from './components/layout/Layout';
 import { useAuthStore } from './store/auth.store';
 
-// 일반 페이지
 import Home from './pages/Home';
 import Products from './pages/Products';
 import ProductDetail from './pages/ProductDetail';
@@ -15,7 +14,6 @@ import Register from './pages/Register';
 import Profile from './pages/Profile';
 import Wishlist from './pages/Wishlist';
 
-// 어드민 페이지
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminProductList from './pages/admin/ProductList';
 import AdminProductForm from './pages/admin/ProductForm';
@@ -36,10 +34,10 @@ function RequireAdmin({ children }) {
   return children;
 }
 
-// 어드민 레이아웃
 function AdminLayout() {
-  const { user, logout } = useAuthStore();
+  const { logout } = useAuthStore();
   const navigate = useNavigate();
+
   return (
     <div className="min-h-screen flex">
       <aside className="w-56 bg-gray-900 text-white shrink-0 relative">
@@ -53,17 +51,28 @@ function AdminLayout() {
             { to: '/admin/products', label: '상품 관리' },
             { to: '/admin/orders', label: '주문 관리' },
           ].map(({ to, label }) => (
-            <Link key={to} to={to} className="block px-3 py-2 text-sm rounded hover:bg-gray-700 transition-colors text-gray-300 hover:text-white">
+            <Link
+              key={to}
+              to={to}
+              className="block px-3 py-2 text-sm rounded hover:bg-gray-700 transition-colors text-gray-300 hover:text-white"
+            >
               {label}
             </Link>
           ))}
-          <Link to="/" className="block px-3 py-2 text-sm rounded hover:bg-gray-700 transition-colors text-gray-500 hover:text-white mt-4">
-            ← 쇼핑몰로 돌아가기
+          <Link
+            to="/"
+            className="block px-3 py-2 text-sm rounded hover:bg-gray-700 transition-colors text-gray-500 hover:text-white mt-4"
+          >
+            쇼핑몰로 돌아가기
           </Link>
         </nav>
         <div className="absolute bottom-4 left-0 w-56 px-3">
           <button
-            onClick={async () => { await logout(); navigate('/'); }}
+            type="button"
+            onClick={async () => {
+              await logout();
+              navigate('/');
+            }}
             className="w-full text-left px-3 py-2 text-sm text-gray-400 hover:text-white transition-colors"
           >
             로그아웃
@@ -86,7 +95,6 @@ function AdminLayout() {
 export default function App() {
   return (
     <Routes>
-      {/* 어드민 라우트 */}
       <Route
         path="/admin/*"
         element={
@@ -96,7 +104,6 @@ export default function App() {
         }
       />
 
-      {/* 일반 레이아웃 */}
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
         <Route path="/products" element={<Products />} />
