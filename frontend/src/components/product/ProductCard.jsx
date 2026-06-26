@@ -43,7 +43,7 @@ export default function ProductCard({ product }) {
   };
 
   return (
-    <Link to={`/products/${product.id}`} className="group block">
+    <Link to={`/products/${product.id}`} className="group block min-w-0">
       <div className="relative overflow-hidden bg-gray-50 aspect-[3/4]">
         <img
           src={getImageUrl(images[0])}
@@ -63,7 +63,7 @@ export default function ProductCard({ product }) {
           />
         )}
 
-        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 rounded-full p-1.5">
+        <div className="absolute top-2 right-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity bg-white/80 rounded-full p-1.5">
           <WishlistButton productId={product.id} size="sm" />
         </div>
 
@@ -80,7 +80,7 @@ export default function ProductCard({ product }) {
           type="button"
           onClick={handleQuickAdd}
           disabled={isOutOfStock || addToCartMutation.isPending}
-          className="absolute bottom-0 left-0 right-0 bg-black/80 text-white py-3 text-sm font-medium translate-y-full group-hover:translate-y-0 transition-transform duration-200 flex items-center justify-center gap-2 disabled:bg-gray-500"
+          className="absolute bottom-0 left-0 right-0 bg-black/80 text-white py-2.5 sm:py-3 text-xs sm:text-sm font-medium translate-y-full sm:group-hover:translate-y-0 transition-transform duration-200 flex items-center justify-center gap-1.5 sm:gap-2 disabled:bg-gray-500"
           aria-label="빠른 장바구니 추가"
         >
           <ShoppingBag size={16} />
@@ -88,15 +88,15 @@ export default function ProductCard({ product }) {
         </button>
       </div>
 
-      <div className="mt-3 space-y-1">
+      <div className="mt-3 space-y-1 min-w-0">
         <p className="text-xs text-gray-400 truncate">{product.category?.name}</p>
         <p className="text-sm font-medium text-gray-900 line-clamp-2 leading-snug">{product.name}</p>
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-base">{formatPrice(product.price)}</span>
+        <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+          <span className="font-bold text-sm sm:text-base">{formatPrice(product.price)}</span>
           {discount && product.comparePrice && (
             <>
-              <span className="text-sm text-gray-400 line-through">{formatPrice(product.comparePrice)}</span>
-              <span className="text-sm text-red-500 font-medium">{discount}%</span>
+              <span className="text-xs sm:text-sm text-gray-400 line-through">{formatPrice(product.comparePrice)}</span>
+              <span className="text-xs sm:text-sm text-red-500 font-medium">{discount}%</span>
             </>
           )}
         </div>

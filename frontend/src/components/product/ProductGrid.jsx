@@ -13,7 +13,7 @@ export default function ProductGrid({ products, isLoading, emptyMessage = 'ìƒí’
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-8">
+    <div className="grid grid-cols-1 min-[380px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 sm:gap-x-4 lg:gap-x-6 gap-y-8">
       {products.map((product) => (
         <ProductCard key={product.id} product={product} />
       ))}
