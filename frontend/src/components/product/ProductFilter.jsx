@@ -105,7 +105,7 @@ export default function ProductFilter({ filters, onFilterChange, total }) {
       </aside>
 
       {/* 모바일 상단 바 */}
-      <div className="lg:hidden flex items-center justify-between mb-4">
+      <div className="lg:hidden flex w-full items-center justify-between mb-4">
         <button
           onClick={() => setMobileOpen(true)}
           className="flex items-center gap-2 text-sm border border-gray-200 px-3 py-2"

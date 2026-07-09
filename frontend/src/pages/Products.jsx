@@ -57,7 +57,7 @@ export default function Products() {
         {data && <p className="text-sm text-gray-500 mt-1">총 {data.pagination.total}개</p>}
       </div>
 
-      <div className="flex gap-10">
+      <div className="lg:flex lg:gap-10">
         <ProductFilter
           filters={filters}
           onFilterChange={handleFilterChange}
